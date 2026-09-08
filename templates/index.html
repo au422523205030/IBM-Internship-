@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Student Support Assistant</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>🎓 AI Student Support Assistant</h1>
+      <p>RAG + Tools + Memory • College helpdesk prototype</p>
+    </div>
+    <button id="clear">Clear Chat</button>
+  </header>
+
+  <main>
+    <section class="chat" id="chat">
+      <div class="msg bot">
+        <b>Assistant</b>
+        <p>Hello! Ask me about attendance, exams, leave, projects, placement, library, scholarships, or college procedures.</p>
+      </div>
+    </section>
+
+    <section class="suggestions">
+      <button onclick="ask('What is the attendance policy?')">Attendance policy</button>
+      <button onclick="ask('What is the project submission procedure?')">Project submission</button>
+      <button onclick="ask('What should I know about placement?')">Placement</button>
+      <button onclick="ask('75 out of 90')">Calculate percentage</button>
+    </section>
+
+    <form id="form">
+      <input id="input" autocomplete="off" placeholder="Type your question..." required>
+      <button>Send</button>
+    </form>
+    <div class="memory" id="memory">Memory: loading...</div>
+  </main>
+</div>
+<script>
+const chat = document.getElementById('chat');
+const input = document.getElementById('input');
+const memory = document.getElementById('memory');
+
+function add(role, text) {
+  const box = document.createElement('div');
+  box.className = 'msg ' + role;
+  box.innerHTML = '<b>' + (role === 'user' ? 'You' : 'Assistant') + '</b><p></p>';
+  box.querySelector('p').textContent = text;
+  chat.appendChild(box);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function ask(text) {
+  input.value = text;
+  document.getElementById('form').requestSubmit();
+}
+
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  add('user', text);
+  input.value = '';
+  add('bot', 'Thinking...');
+  const pending = chat.lastElementChild;
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({message: text})
+    });
+    const data = await r.json();
+    pending.querySelector('p').textContent = data.answer;
+    updateMemory(data.memory);
+  } catch(err) {
+    pending.querySelector('p').textContent = 'Server error. Please check that the Flask app is running.';
+  }
+});
+
+async function updateMemory(data) {
+  memory.textContent = 'Memory: ' + (data.name ? 'Name=' + data.name + ' ' : '') +
+    (data.course ? 'Course=' + data.course : 'No saved details');
+}
+document.getElementById('clear').onclick = () => {
+  chat.innerHTML = '<div class="msg bot"><b>Assistant</b><p>Chat cleared. Ask a new question.</p></div>';
+};
+fetch('/api/memory').then(r=>r.json()).then(updateMemory);
+</script>
+</body>
+</html>
